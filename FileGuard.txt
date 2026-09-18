@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+
+import argparse
+import hashlib
+import json
+import os
+import stat
+
+from datetime import datetime
+
+
+def calculate_hash(path, algorithm):
+
+    hasher = hashlib.new(
+        algorithm
+    )
+
+    with open(
+        path,
+        "rb"
+    ) as file:
+
+        for block in iter(
+            lambda: file.read(1024 * 1024),
+            b""
+        ):
+
+            hasher.update(block)
+
+    return hasher.hexdigest()
+
+
+def main():
+
+    parser = argparse.ArgumentParser(
+        description="GxFileGuard - análisis de archivos"
+    )
+
+    parser.add_argument(
+        "file",
+        help="Archivo que deseas analizar"
+    )
+
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="reports/fileguard.json"
+    )
+
+    args = parser.parse_args()
+
+    if not os.path.isfile(args.file):
+
+        print("[!] Archivo no encontrado.")
+        return
+
+    file_stat = os.stat(
+        args.file
+    )
+
+    report = {
+
+        "tool":
+            "GxFileGuard",
+
+        "version":
+            "1.1.0",
+
+        "timestamp_utc":
+            datetime.utcnow().isoformat() + "Z",
+
+        "file":
+            os.path.abspath(args.file),
+
+        "filename":
+            os.path.basename(args.file),
+
+        "size_bytes":
+            file_stat.st_size,
+
+        "extension":
+            os.path.splitext(
+                args.file
+            )[1].lower(),
+
+        "permissions":
+            stat.filemode(
+                file_stat.st_mode
+            ),
+
+        "hashes": {
+
+            "md5":
+                calculate_hash(
+                    args.file,
+                    "md5"
+                ),
+
+            "sha1":
+                calculate_hash(
+                    args.file,
+                    "sha1"
+                ),
+
+            "sha256":
+                calculate_hash(
+                    args.file,
+                    "sha256"
+                )
+        }
+    }
+
+    os.makedirs(
+        os.path.dirname(args.output) or ".",
+        exist_ok=True
+    )
+
+    with open(
+        args.output,
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        json.dump(
+            report,
+            file,
+            indent=2,
+            ensure_ascii=False
+        )
+
+    print("\n[+] GxFileGuard")
+
+    print(
+        f"[+] Archivo: {report['filename']}"
+    )
+
+    print(
+        f"[+] Tamaño: {report['size_bytes']} bytes"
+    )
+
+    print(
+        f"[+] SHA256: {report['hashes']['sha256']}"
+    )
+
+    print(
+        f"[+] Reporte: {args.output}"
+    )
+
+
+if name == "main":
+    main()
